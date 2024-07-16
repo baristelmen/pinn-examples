@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as that
+from tqdm import tqdm
 
 class Net(nn.Module):
     def __init__(self, input_dim, output_dim, 
@@ -48,10 +49,18 @@ class Net(nn.Module):
             print('Memory Usage:')
             print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
             print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')
-
+            
     def get_device(self):
         return self.device
 
+    def set_device(self, input):
+        __allowed_keywords = ["cpu", "cuda"]
+        
+        if input in __allowed_keywords:
+            self.device = input
+        else:
+            raise AttributeError(f"Cannot set unknown attribute '{input}'")
+    
     ## Seed for cuda and cpu
     def fix_seed(self, seed_no=42):
         self.seed = seed_no
@@ -90,6 +99,27 @@ class Net(nn.Module):
                 print(f"Epoch {ep}/{self.epochs}, loss: {losses[-1]:.2f}")
         return losses
 
+    def fit_tqdm(self, X, y):
+        Xt = self.np_to_th(X)
+        yt = self.np_to_th(y)
+    
+        optimiser = optim.Adam(self.parameters(), lr=self.lr)
+        self.train()
+        losses = []
+        
+        # Wrap the loop with tqdm
+        for ep in tqdm(range(self.epochs), desc="Training Progress"):
+            optimiser.zero_grad()
+            outputs = self.forward(Xt)
+            loss = self.loss(yt, outputs)
+            if self.loss2:
+                loss += self.loss2_weight + self.loss2_weight * self.loss2(self)
+            loss.backward()
+            optimiser.step()
+            losses.append(loss.item())       
+        return losses
+
+    
     def predict(self, X):
         self.eval()
         out = self.forward(self.np_to_th(X))
@@ -113,3 +143,6 @@ class NetDiscovery(Net):
         )
 
         self.r = nn.Parameter(data=torch.tensor([0.]))
+
+def l2_reg(model: torch.nn.Module):
+    return torch.sum(sum([p.pow(2.) for p in model.parameters()]))
