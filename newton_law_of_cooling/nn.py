@@ -64,10 +64,7 @@ class Net(nn.Module):
     ## Seed for cuda and cpu
     def fix_seed(self, seed_no=42):
         self.seed = seed_no
-        if self.device.type == 'cuda':
-            torch.cuda.manual_seed_all(self.seed)
-        else:
-            torch.manual_seed(self.seed)
+        torch.manual_seed(self.seed)
 
     def forward(self, x):
         h = self.layers(x)
@@ -146,3 +143,7 @@ class NetDiscovery(Net):
 
 def l2_reg(model: torch.nn.Module):
     return torch.sum(sum([p.pow(2.) for p in model.parameters()]))
+
+def np_to_th(x):
+    n_samples = len(x)
+    return torch.from_numpy(x).to(torch.float).to(DEVICE).reshape(n_samples, -1)
